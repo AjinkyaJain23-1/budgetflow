@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Premium Monthly Budget and Expense Tracker with interactive charts.">
+    <title>Monthly Budget Dashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- jsPDF (PDF export) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <!-- SheetJS (Excel export) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo" onclick="navigateTo('dashboard')" style="cursor:pointer;" title="Go to Dashboard">
+                <div class="logo-icon"><i class="fa-solid fa-wallet"></i></div>
+                <h1>BudgetFlow</h1>
+            </div>
+            <nav class="nav-menu">
+                <a href="#dashboard" class="nav-item active" data-target="dashboard">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#income" class="nav-item" data-target="income">
+                    <i class="fa-solid fa-arrow-trend-up"></i>
+                    <span>Income</span>
+                </a>
+                <a href="#expenses" class="nav-item" data-target="expenses">
+                    <i class="fa-solid fa-arrow-trend-down"></i>
+                    <span>Expenses</span>
+                </a>
+                <a href="#summary" class="nav-item" data-target="summary">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                    <span>Summary</span>
+                </a>
+                <a href="#profile" class="nav-item" data-target="profile">
+                    <i class="fa-solid fa-circle-user"></i>
+                    <span>Profile</span>
+                </a>
+                <a href="#budget-plan" class="nav-item" data-target="budget-plan">
+                    <i class="fa-solid fa-lightbulb"></i>
+                    <span>Budget Plan</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer" style="display:flex;gap:0.75rem;align-items:center;">
+                <button id="reset-data" class="btn btn-outline btn-danger-outline" style="flex:1;" title="Delete all data permanently">
+                    <i class="fa-solid fa-trash-can"></i> Clear All Data
+                </button>
+                <button id="theme-toggle" class="theme-toggle-btn" title="Toggle light/dark theme">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-header">
+                <div>
+                    <h2 id="page-title">Overview</h2>
+                    <p id="header-greeting" style="font-size:0.85rem;color:var(--text-muted);margin-top:2px;"></p>
+                </div>
+                <div class="user-profile" id="user-profile-avatar" title="Go to Profile" style="cursor:pointer;"
+                    onclick="navigateTo('profile')">
+                    <img id="avatar-img" src="https://ui-avatars.com/api/?name=U&background=4F46E5&color=fff"
+                        alt="User Avatar">
+                </div>
+            </header>
+
+            <!-- Overspending Alert Banner -->
+            <div id="overspend-alert" class="overspend-alert" style="display:none;">
+                <div class="alert-content">
+                    <span class="alert-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                    <div class="alert-text">
+                        <strong>Overspending Alert!</strong>
+                        <span id="overspend-message">Your expenses have exceeded your income.</span>
+                    </div>
+                    <button class="alert-close" onclick="this.closest('#overspend-alert').style.display='none'"
+                        title="Dismiss">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dashboard View -->
+            <section id="dashboard" class="view-section active">
+                <div class="stats-grid">
+                    <div class="stat-card glass-panel orange-gradient">
+                        <div class="stat-icon"><i class="fa-solid fa-wallet"></i></div>
+                        <div class="stat-info">
+                            <h3>Remaining Balance</h3>
+                            <p class="stat-value" id="stat-balance">₹0.00</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-panel green-gradient stat-clickable" onclick="navigateTo('income')"
+                        title="Click to manage Income">
+                        <div class="stat-icon"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                        <div class="stat-info">
+                            <h3>Total Income</h3>
+                            <p class="stat-value" id="stat-income">₹0.00</p>
+                        </div>
+                        <span class="stat-nav-hint"><i class="fa-solid fa-arrow-right"></i></span>
+                    </div>
+                    <div class="stat-card glass-panel red-gradient stat-clickable" onclick="navigateTo('expenses')"
+                        title="Click to manage Expenses">
+                        <div class="stat-icon"><i class="fa-solid fa-arrow-trend-down"></i></div>
+                        <div class="stat-info">
+                            <h3>Total Expenses</h3>
+                            <p class="stat-value" id="stat-expenses">₹0.00</p>
+                        </div>
+                        <span class="stat-nav-hint"><i class="fa-solid fa-arrow-right"></i></span>
+                    </div>
+                    <div class="stat-card glass-panel blue-gradient">
+                        <div class="stat-icon"><i class="fa-solid fa-piggy-bank"></i></div>
+                        <div class="stat-info">
+                            <h3>Total Savings</h3>
+                            <p class="stat-value" id="stat-savings">₹0.00</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-widgets">
+                    <div class="widget glass-panel chart-widget">
+                        <div class="widget-header">
+                            <h3>Expense Breakdown</h3>
+                        </div>
+                        <div class="chart-container">
+                            <div id="expense-empty-state" class="empty-state" style="display: none;">No expense data
+                                available</div>
+                            <canvas id="expensePieChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="widget glass-panel recent-widget">
+                        <div class="widget-header">
+                            <h3>Recent Transactions</h3>
+                        </div>
+                        <div class="recent-transactions" id="recent-transactions-list">
+                            <!-- Populated by JS -->
+                            <div class="empty-state">No transactions yet</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monthly Income & Expenses Overview -->
+                <div class="glass-panel monthly-overview-widget">
+                    <div class="widget-header">
+                        <h3><i class="fa-solid fa-calendar-alt" style="color:var(--primary)"></i> Monthly Income &amp;
+                            Expenses</h3>
+                        <span class="monthly-overview-hint">Auto-grouped · current month highlighted</span>
+                    </div>
+                    <div id="monthly-overview-container">
+                        <div class="empty-state" style="padding:2rem">No transaction data yet</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Income Management View -->
+            <section id="income" class="view-section">
+                <div class="section-header">
+                    <h2>Income Management</h2>
+                    <div style="display:flex;gap:0.75rem;">
+                        <button class="btn btn-outline" onclick="openFixedIncomeModal()">
+                            <i class="fa-solid fa-thumbtack"></i> Add Fixed
+                        </button>
+                        <button class="btn btn-primary" onclick="openModal('income-modal')">
+                            <i class="fa-solid fa-plus"></i> Add Income
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Auto-apply prompt banner -->
+                <div id="fixed-income-prompt-banner" class="fixed-prompt-banner fixed-income-banner"
+                    style="display:none;">
+                    <div class="fixed-prompt-left">
+                        <i class="fa-solid fa-bell"></i>
+                        <span id="fixed-income-prompt-text"></span>
+                    </div>
+                    <button class="btn btn-primary btn-sm"
+                        onclick="applyFixedIncomesForMonth(this.closest('[data-ym]').dataset.ym)">
+                        <i class="fa-solid fa-bolt"></i> Apply Now
+                    </button>
+                </div>
+
+                <!-- Fixed Incomes Panel -->
+                <div id="fixed-incomes-panel" class="glass-panel fixed-incomes-panel">
+                    <div class="fixed-panel-header">
+                        <div class="fixed-panel-title">
+                            <i class="fa-solid fa-thumbtack" style="color:var(--success);"></i>
+                            <span>Fixed (Recurring) Incomes</span>
+                            <span class="fixed-panel-sub">Auto-applied every month</span>
+                        </div>
+                        <div style="display:flex;gap:0.5rem;align-items:center;">
+                            <button class="btn btn-outline btn-sm"
+                                onclick="applyFixedIncomesForMonth(getCurrentYearMonth())">
+                                <i class="fa-solid fa-calendar-plus"></i> Apply This Month
+                            </button>
+                            <button class="btn btn-sm btn-outline" onclick="toggleFixedIncomePanel()" title="Collapse">
+                                <i class="fa-solid fa-chevron-up" id="fixed-income-panel-chevron"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="fixed-inc-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Toast notification -->
+                <div id="fixed-income-toast" class="fixed-toast" style="display:none;"></div>
+
+                <!-- Income table -->
+                <div class="glass-panel table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="income-table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Expenses Management View -->
+            <section id="expenses" class="view-section">
+                <div class="section-header">
+                    <h2>Expense Tracking</h2>
+                    <div style="display:flex;gap:0.75rem;">
+                        <button class="btn btn-outline" onclick="openFixedExpenseModal()">
+                            <i class="fa-solid fa-thumbtack"></i> Add Fixed
+                        </button>
+                        <button class="btn btn-primary" onclick="openModal('expense-modal')">
+                            <i class="fa-solid fa-plus"></i> Add Expense
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Auto-apply prompt banner -->
+                <div id="fixed-prompt-banner" class="fixed-prompt-banner" style="display:none;">
+                    <div class="fixed-prompt-left">
+                        <i class="fa-solid fa-bell"></i>
+                        <span id="fixed-prompt-text"></span>
+                    </div>
+                    <button class="btn btn-primary btn-sm"
+                        onclick="applyFixedExpensesForMonth(this.closest('[data-ym]').dataset.ym)">
+                        <i class="fa-solid fa-bolt"></i> Apply Now
+                    </button>
+                </div>
+
+                <!-- Fixed Expenses Panel -->
+                <div id="fixed-expenses-panel" class="glass-panel fixed-expenses-panel">
+                    <div class="fixed-panel-header">
+                        <div class="fixed-panel-title">
+                            <i class="fa-solid fa-thumbtack"></i>
+                            <span>Fixed (Recurring) Expenses</span>
+                            <span class="fixed-panel-sub">Auto-applied every month</span>
+                        </div>
+                        <div style="display:flex;gap:0.5rem;align-items:center;">
+                            <button class="btn btn-outline btn-sm" id="fixed-apply-btn"
+                                onclick="applyFixedExpensesForMonth(getCurrentYearMonth())">
+                                <i class="fa-solid fa-calendar-plus"></i> Apply This Month
+                            </button>
+                            <button class="btn btn-sm btn-outline fixed-panel-toggle" onclick="toggleFixedPanel()"
+                                title="Collapse">
+                                <i class="fa-solid fa-chevron-up" id="fixed-panel-chevron"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="fixed-exp-list" id="fixed-exp-list-body">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Toast notification -->
+                <div id="fixed-toast" class="fixed-toast" style="display:none;"></div>
+
+                <!-- Expense table -->
+                <div class="glass-panel table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expense-table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Summary View -->
+            <section id="summary" class="view-section">
+                <div class="section-header">
+                    <h2>Monthly Summary</h2>
+                    <div class="export-btn-group">
+                        <button class="btn btn-outline" onclick="exportPDF()" title="Export as PDF">
+                            <i class="fa-solid fa-file-pdf"></i> Export PDF
+                        </button>
+                        <button class="btn btn-primary" onclick="exportExcel()" title="Export as Excel">
+                            <i class="fa-solid fa-file-excel"></i> Export Excel
+                        </button>
+                    </div>
+                </div>
+
+
+                <div class="summary-cards">
+                    <div class="glass-panel summary-card">
+                        <h3>Income vs Expenses</h3>
+                        <div class="chart-container">
+                            <div id="summary-empty-state" class="empty-state" style="display: none;">No transaction data
+                                available</div>
+                            <canvas id="summaryBarChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="glass-panel summary-card">
+                        <h3>Breakdown by Category</h3>
+                        <div class="category-summary-list" id="category-summary-list">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <!-- Profile / Customer Info View -->
+            <section id="profile" class="view-section">
+                <div class="section-header">
+                    <h2>My Profile</h2>
+                </div>
+                <div class="profile-layout">
+                    <!-- Profile Card -->
+                    <div class="glass-panel profile-card">
+                        <div class="profile-avatar-wrap">
+                            <img id="profile-avatar-big"
+                                src="https://ui-avatars.com/api/?name=U&background=4F46E5&color=fff&size=128"
+                                alt="Avatar" class="profile-avatar-big">
+                            <div class="profile-name-display">
+                                <h3 id="profile-display-name">Your Name</h3>
+                                <p id="profile-display-email" style="color:var(--text-muted);font-size:0.9rem;">—</p>
+                            </div>
+                        </div>
+                        <div class="profile-stats">
+                            <div class="profile-stat">
+                                <span class="profile-stat-value" id="ps-income">₹0</span>
+                                <span class="profile-stat-label">Total Income</span>
+                            </div>
+                            <div class="profile-stat">
+                                <span class="profile-stat-value" id="ps-expenses">₹0</span>
+                                <span class="profile-stat-label">Total Expenses</span>
+                            </div>
+                            <div class="profile-stat">
+                                <span class="profile-stat-value" id="ps-balance">₹0</span>
+                                <span class="profile-stat-label">Balance</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Edit Form -->
+                    <div class="glass-panel profile-form-card">
+                        <h3 style="margin-bottom:1.5rem;">Personal Information</h3>
+                        <form id="profile-form">
+                            <div class="form-group row">
+                                <div class="col">
+                                    <label for="profile-first-name">First Name</label>
+                                    <input type="text" id="profile-first-name" placeholder="e.g. John"
+                                        autocomplete="given-name">
+                                </div>
+                                <div class="col">
+                                    <label for="profile-last-name">Last Name</label>
+                                    <input type="text" id="profile-last-name" placeholder="e.g. Doe"
+                                        autocomplete="family-name">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="profile-email">Email Address</label>
+                                <input type="email" id="profile-email" placeholder="e.g. john.doe@email.com"
+                                    autocomplete="email">
+                            </div>
+                            <div class="form-group">
+                                <label for="profile-phone">Phone Number</label>
+                                <input type="tel" id="profile-phone" placeholder="e.g. +91 98765 43210"
+                                    autocomplete="tel">
+                            </div>
+                            <div class="form-group">
+                                <label for="profile-currency">Preferred Currency</label>
+                                <select id="profile-currency">
+                                    <option value="INR">₹ Indian Rupee (INR)</option>
+                                    <option value="USD">$ US Dollar (USD)</option>
+                                    <option value="EUR">€ Euro (EUR)</option>
+                                    <option value="GBP">£ British Pound (GBP)</option>
+                                </select>
+                            </div>
+                            <div style="display:flex;gap:1rem;justify-content:flex-end;margin-top:0.5rem;">
+                                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>
+                                    Save Profile</button>
+                            </div>
+                        </form>
+                        <div id="profile-save-toast" class="profile-toast" style="display:none;">
+                            <i class="fa-solid fa-circle-check"></i> Profile saved successfully!
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Budget Plan (50/30/20) View -->
+            <section id="budget-plan" class="view-section">
+                <div class="section-header">
+                    <h2>Smart Budget Plan</h2>
+                    <span class="bp-badge"><i class="fa-solid fa-lightbulb"></i> 50 / 30 / 20 Rule</span>
+                </div>
+
+                <!-- Income Input -->
+                <div class="glass-panel bp-income-panel">
+                    <div class="bp-income-row">
+                        <div class="bp-income-field">
+                            <label for="bp-income-input"><i class="fa-solid fa-indian-rupee-sign"></i> Monthly
+                                Income</label>
+                            <input type="number" id="bp-income-input" placeholder="e.g. 50000" min="0" step="100">
+                        </div>
+                        <div class="bp-income-actions">
+                            <button class="btn btn-outline bp-use-actual" id="bp-use-actual-btn"
+                                title="Fill with your recorded income">
+                                <i class="fa-solid fa-sync-alt"></i> Use Actual Income
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preset Rule Tabs -->
+                <div class="bp-preset-tabs">
+                    <button class="bp-preset-tab active" data-needs="50" data-wants="30" data-savings="20">
+                        <span class="bp-tab-rule">50/30/20</span>
+                        <span class="bp-tab-label">Classic</span>
+                    </button>
+                    <button class="bp-preset-tab" data-needs="60" data-wants="20" data-savings="20">
+                        <span class="bp-tab-rule">60/20/20</span>
+                        <span class="bp-tab-label">Frugal</span>
+                    </button>
+                    <button class="bp-preset-tab" data-needs="50" data-wants="20" data-savings="30">
+                        <span class="bp-tab-rule">50/20/30</span>
+                        <span class="bp-tab-label">Aggressive Saver</span>
+                    </button>
+                    <button class="bp-preset-tab" data-needs="70" data-wants="20" data-savings="10">
+                        <span class="bp-tab-rule">70/20/10</span>
+                        <span class="bp-tab-label">High Needs</span>
+                    </button>
+                    <button class="bp-preset-tab" id="bp-custom-tab" data-needs="" data-wants="" data-savings="">
+                        <span class="bp-tab-rule"><i class="fa-solid fa-sliders"></i></span>
+                        <span class="bp-tab-label">Custom</span>
+                    </button>
+                </div>
+
+                <!-- Main Layout: Sliders + Cards + Chart -->
+                <div class="bp-main-grid">
+                    <!-- Left: Sliders -->
+                    <div class="glass-panel bp-sliders-panel">
+                        <h3 class="bp-panel-title">Allocation</h3>
+                        <p class="bp-panel-sub" id="bp-total-pct-label">Total: <strong>100%</strong></p>
+
+                        <div class="bp-slider-group">
+                            <div class="bp-slider-header">
+                                <span class="bp-slider-dot" style="background:#f97316"></span>
+                                <span class="bp-slider-name">Needs <small>(rent, food, bills)</small></span>
+                                <span class="bp-slider-val" id="bp-needs-pct-val">50%</span>
+                            </div>
+                            <input type="range" class="bp-range" id="bp-needs-slider" min="0" max="100" value="50">
+                            <div class="bp-slider-amount" id="bp-needs-amount">₹0</div>
+                        </div>
+
+                        <div class="bp-slider-group">
+                            <div class="bp-slider-header">
+                                <span class="bp-slider-dot" style="background:#3b82f6"></span>
+                                <span class="bp-slider-name">Wants <small>(shopping, dining, fun)</small></span>
+                                <span class="bp-slider-val" id="bp-wants-pct-val">30%</span>
+                            </div>
+                            <input type="range" class="bp-range" id="bp-wants-slider" min="0" max="100" value="30">
+                            <div class="bp-slider-amount" id="bp-wants-amount">₹0</div>
+                        </div>
+
+                        <div class="bp-slider-group">
+                            <div class="bp-slider-header">
+                                <span class="bp-slider-dot" style="background:#10b981"></span>
+                                <span class="bp-slider-name">Savings <small>(investments, emergency)</small></span>
+                                <span class="bp-slider-val" id="bp-savings-pct-val">20%</span>
+                            </div>
+                            <input type="range" class="bp-range" id="bp-savings-slider" min="0" max="100" value="20">
+                            <div class="bp-slider-amount" id="bp-savings-amount">₹0</div>
+                        </div>
+
+                        <div id="bp-pct-warning" class="bp-pct-warning" style="display:none;">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            Percentages must add up to 100%.
+                        </div>
+                    </div>
+
+                    <!-- Middle: Result Cards -->
+                    <div class="bp-cards-col">
+                        <div class="bp-result-card bp-needs-card glass-panel">
+                            <div class="bp-rc-icon"><i class="fa-solid fa-house"></i></div>
+                            <div class="bp-rc-body">
+                                <p class="bp-rc-label">Needs (50%)</p>
+                                <p class="bp-rc-amount" id="bp-needs-card-amt">₹0</p>
+                                <p class="bp-rc-sub">Rent, groceries, utilities, transport</p>
+                            </div>
+                        </div>
+                        <div class="bp-result-card bp-wants-card glass-panel">
+                            <div class="bp-rc-icon"><i class="fa-solid fa-cart-shopping"></i></div>
+                            <div class="bp-rc-body">
+                                <p class="bp-rc-label">Wants (30%)</p>
+                                <p class="bp-rc-amount" id="bp-wants-card-amt">₹0</p>
+                                <p class="bp-rc-sub">Dining, shopping, entertainment</p>
+                            </div>
+                        </div>
+                        <div class="bp-result-card bp-savings-card glass-panel">
+                            <div class="bp-rc-icon"><i class="fa-solid fa-piggy-bank"></i></div>
+                            <div class="bp-rc-body">
+                                <p class="bp-rc-label">Savings (20%)</p>
+                                <p class="bp-rc-amount" id="bp-savings-card-amt">₹0</p>
+                                <p class="bp-rc-sub">Emergency fund, investments, goals</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Donut Chart -->
+                    <div class="glass-panel bp-chart-panel">
+                        <h3 class="bp-panel-title">Breakdown</h3>
+                        <div class="bp-chart-wrap">
+                            <canvas id="bpDonutChart"></canvas>
+                            <div class="bp-chart-center" id="bp-chart-center-label">
+                                <span class="bp-chart-center-val" id="bp-chart-income-label">₹0</span>
+                                <span class="bp-chart-center-sub">Monthly</span>
+                            </div>
+                        </div>
+                        <div class="bp-chart-legend">
+                            <span><span class="bp-leg-dot" style="background:#f97316"></span>Needs</span>
+                            <span><span class="bp-leg-dot" style="background:#3b82f6"></span>Wants</span>
+                            <span><span class="bp-leg-dot" style="background:#10b981"></span>Savings</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tips Panel -->
+                <div class="glass-panel bp-tips-panel">
+                    <h3 class="bp-panel-title"><i class="fa-solid fa-circle-info"></i> Smart Tips</h3>
+                    <div class="bp-tips-grid" id="bp-tips-list">
+                        <div class="bp-tip"><i class="fa-solid fa-house-chimney"></i>
+                            <div><strong>Needs ≤ 50%</strong>
+                                <p>Keep essential expenses like rent, groceries, and bills within half your income.</p>
+                            </div>
+                        </div>
+                        <div class="bp-tip"><i class="fa-solid fa-star"></i>
+                            <div><strong>Wants ≤ 30%</strong>
+                                <p>Enjoy life — dining out, travel, and shopping — but within a third of your income.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="bp-tip"><i class="fa-solid fa-piggy-bank"></i>
+                            <div><strong>Save at least 20%</strong>
+                                <p>Build an emergency fund first (3–6 months of expenses), then invest the rest.</p>
+                            </div>
+                        </div>
+                        <div class="bp-tip"><i class="fa-solid fa-chart-line"></i>
+                            <div><strong>Automate savings</strong>
+                                <p>Set up an auto-transfer on payday so savings happen before you spend.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Spending Prediction View -->
+            <section id="predictions" class="view-section">
+                <div class="section-header">
+                    <h2>Spending Predictions</h2>
+                    <div class="prediction-badge">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Weighted Regression Forecast
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div id="pred-empty-state" class="pred-empty-state glass-panel" style="display:none;">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <h3>No Expense Data Yet</h3>
+                    <p>Add some expenses to unlock your personalised spending predictions.</p>
+                    <button class="btn btn-primary" onclick="navigateTo('expenses')"><i class="fa-solid fa-plus"></i>
+                        Add Expenses</button>
+                </div>
+
+                <!-- Main Content -->
+                <div id="pred-content">
+                    <!-- Top Stat Cards -->
+                    <div class="pred-stats-row">
+                        <div class="stat-card glass-panel blue-gradient">
+                            <div class="stat-icon"><i class="fa-solid fa-chart-line"></i></div>
+                            <div class="stat-info">
+                                <h3>Projected Next Month</h3>
+                                <p class="stat-value" id="projected-total">₹0.00</p>
+                                <span class="pred-trend-badge" id="pred-trend-badge"></span>
+                            </div>
+                        </div>
+                        <div class="stat-card glass-panel green-gradient">
+                            <div class="stat-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                            <div class="stat-info">
+                                <h3>3-Month Avg Spend</h3>
+                                <p class="stat-value" id="average-spend">₹0.00</p>
+                            </div>
+                        </div>
+                        <div class="stat-card glass-panel orange-gradient">
+                            <div class="stat-icon"><i class="fa-solid fa-bullseye"></i></div>
+                            <div class="stat-info">
+                                <h3>Forecast Confidence</h3>
+                                <p class="stat-value" id="pred-confidence-val">0%</p>
+                                <div class="pred-confidence-bar">
+                                    <div id="pred-confidence-fill" class="pred-confidence-fill"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart Row 1: Trend + Radar -->
+                    <div class="pred-charts-grid">
+                        <div class="widget glass-panel pred-chart-main">
+                            <div class="widget-header">
+                                <h3><i class="fa-solid fa-chart-mixed" style="color:var(--primary)"></i> Spending Trend
+                                    &amp; Forecast</h3>
+                                <span class="pred-chart-hint">↑ Purple = actual &nbsp;|&nbsp; Green = predicted
+                                    &nbsp;|&nbsp; Orange = trend</span>
+                            </div>
+                            <div class="chart-container" style="min-height:280px;">
+                                <canvas id="predictionChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="widget glass-panel">
+                            <div class="widget-header">
+                                <h3><i class="fa-solid fa-radar" style="color:var(--info)"></i> Category Radar</h3>
+                            </div>
+                            <div class="chart-container" style="min-height:280px;">
+                                <canvas id="predCategoryChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart Row 2: MoM Horizontal Bar -->
+                    <div class="glass-panel widget" style="margin-top:1.5rem;">
+                        <div class="widget-header">
+                            <h3><i class="fa-solid fa-bars-staggered" style="color:var(--warning)"></i> Month-over-Month
+                                Comparison</h3>
+                            <span class="pred-chart-hint">Red = high spend &nbsp;|&nbsp; Green = low spend /
+                                predicted</span>
+                        </div>
+                        <div class="chart-container" style="min-height:220px;">
+                            <canvas id="predMoMChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Insight Cards -->
+                    <div class="pred-insights-section">
+                        <h3 class="pred-section-label"><i class="fa-solid fa-lightbulb"
+                                style="color:var(--warning)"></i> Smart Insights</h3>
+                        <div class="pred-insight-cards-grid" id="pred-insight-cards">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Bottom Row: Category List + What-if -->
+                    <div class="pred-bottom-row">
+                        <div class="glass-panel pred-cat-panel">
+                            <h3 class="pred-panel-title"><i class="fa-solid fa-layer-group"
+                                    style="color:var(--primary)"></i> Predicted by Category</h3>
+                            <div class="category-summary-list" id="predicted-category-list"></div>
+                        </div>
+                        <div class="glass-panel pred-whatif-panel">
+                            <h3 class="pred-panel-title"><i class="fa-solid fa-sliders"
+                                    style="color:var(--success)"></i> What-if Simulator</h3>
+                            <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.2rem;">Adjust your
+                                income to see how next month's balance changes.</p>
+                            <label style="font-size:0.85rem;color:var(--text-muted);">Monthly Income</label>
+                            <input type="range" id="whatif-income-slider" class="whatif-slider" min="0" max="200000"
+                                step="500" value="50000">
+                            <div class="whatif-income-display" id="whatif-income-value">₹50,000</div>
+                            <div class="whatif-result-row">
+                                <span class="whatif-label">Projected Savings:</span>
+                                <span class="whatif-value" id="whatif-balance">₹0</span>
+                            </div>
+                            <div class="whatif-pct" id="whatif-spend-pct">0% of income spent</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+    </div>
+
+    <!-- Modals -->
+    <!-- Income Modal -->
+    <div class="modal" id="income-modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3 id="income-modal-title">Add Income</h3>
+                <button class="close-btn" onclick="closeModal('income-modal')">&times;</button>
+            </div>
+            <form id="income-form">
+                <input type="hidden" id="income-id">
+                <div class="form-group">
+                    <label for="income-desc">Description</label>
+                    <input type="text" id="income-desc" required placeholder="e.g. November Salary">
+                </div>
+                <div class="form-group row">
+                    <div class="col">
+                        <label for="income-amount">Amount (₹)</label>
+                        <input type="number" id="income-amount" step="0.01" min="0" required placeholder="0.00">
+                    </div>
+                    <div class="col">
+                        <label for="income-date">Date</label>
+                        <input type="date" id="income-date" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="income-category">Category</label>
+                    <select id="income-category" required>
+                        <option value="" disabled selected>Select Category</option>
+                        <option value="Salary">Salary</option>
+                        <option value="Business">Business</option>
+                        <option value="Freelance">Freelance</option>
+                        <option value="Investment">Investment</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('income-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Income</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Expense Modal -->
+    <div class="modal" id="expense-modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3 id="expense-modal-title">Add Expense</h3>
+                <button class="close-btn" onclick="closeModal('expense-modal')">&times;</button>
+            </div>
+            <form id="expense-form">
+                <input type="hidden" id="expense-id">
+                <div class="form-group">
+                    <label for="expense-desc">Description</label>
+                    <input type="text" id="expense-desc" required placeholder="e.g. Grocery Shopping">
+                </div>
+                <div class="form-group row">
+                    <div class="col">
+                        <label for="expense-amount">Amount (₹)</label>
+                        <input type="number" id="expense-amount" step="0.01" min="0" required placeholder="0.00">
+                    </div>
+                    <div class="col">
+                        <label for="expense-date">Date</label>
+                        <input type="date" id="expense-date" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="expense-category">Category</label>
+                    <select id="expense-category" required>
+                        <option value="" disabled selected>Select Category</option>
+                        <option value="Food">Food & Dining</option>
+                        <option value="Rent">Rent & Housing</option>
+                        <option value="Travel">Travel & Commute</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Bills">Bills & Utilities</option>
+                        <option value="Savings">Savings Transfer</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('expense-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Expense</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Fixed Expense Modal -->
+    <div class="modal" id="fixed-expense-modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3 id="fixed-modal-title">Add Fixed Expense</h3>
+                <button class="close-btn" onclick="closeFixedExpenseModal()">&times;</button>
+            </div>
+            <form id="fixed-expense-form">
+                <input type="hidden" id="fixed-exp-id">
+                <div class="form-group">
+                    <label for="fixed-exp-desc">Description</label>
+                    <input type="text" id="fixed-exp-desc" required placeholder="e.g. Monthly Rent">
+                </div>
+                <div class="form-group row">
+                    <div class="col">
+                        <label for="fixed-exp-amount">Amount (₹)</label>
+                        <input type="number" id="fixed-exp-amount" step="0.01" min="0" required placeholder="0.00">
+                    </div>
+                    <div class="col">
+                        <label for="fixed-exp-day">Day of Month</label>
+                        <input type="number" id="fixed-exp-day" min="1" max="31" value="1" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="fixed-exp-category">Category</label>
+                    <select id="fixed-exp-category" required>
+                        <option value="" disabled selected>Select Category</option>
+                        <option value="Food">Food &amp; Dining</option>
+                        <option value="Rent">Rent &amp; Housing</option>
+                        <option value="Travel">Travel &amp; Commute</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Bills">Bills &amp; Utilities</option>
+                        <option value="Savings">Savings Transfer</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="fixed-modal-info">
+                    <i class="fa-solid fa-circle-info"></i>
+                    This template will be available to apply every month.
+                    Use the <strong>Apply This Month</strong> button on the Expenses page.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeFixedExpenseModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save
+                        Template</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Fixed Income Modal -->
+    <div class="modal" id="fixed-income-modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3 id="fixed-income-modal-title">Add Fixed Income</h3>
+                <button class="close-btn" onclick="closeFixedIncomeModal()">&times;</button>
+            </div>
+            <form id="fixed-income-form">
+                <input type="hidden" id="fixed-inc-id">
+                <div class="form-group">
+                    <label for="fixed-inc-desc">Description</label>
+                    <input type="text" id="fixed-inc-desc" required placeholder="e.g. Monthly Salary">
+                </div>
+                <div class="form-group row">
+                    <div class="col">
+                        <label for="fixed-inc-amount">Amount (&#8377;)</label>
+                        <input type="number" id="fixed-inc-amount" step="0.01" min="0" required placeholder="0.00">
+                    </div>
+                    <div class="col">
+                        <label for="fixed-inc-day">Day of Month</label>
+                        <input type="number" id="fixed-inc-day" min="1" max="31" value="1" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="fixed-inc-category">Category</label>
+                    <select id="fixed-inc-category" required>
+                        <option value="" disabled selected>Select Category</option>
+                        <option value="Salary">Salary</option>
+                        <option value="Freelance">Freelance</option>
+                        <option value="Business">Business Income</option>
+                        <option value="Investment">Investment Returns</option>
+                        <option value="Rental">Rental Income</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="fixed-modal-info fixed-modal-info-inc">
+                    <i class="fa-solid fa-circle-info"></i>
+                    This template will be available to apply every month.
+                    Use the <strong>Apply This Month</strong> button on the Income page.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeFixedIncomeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save
+                        Template</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ══ AI FINANCIAL ADVISOR BOT ══════════════════════════ -->
+
+    <!-- Floating trigger button -->
+    <button id="bot-fab" class="bot-fab" onclick="toggleBotPanel()" title="AI Financial Advisor">
+        <i class="fa-solid fa-robot"></i>
+        <span class="bot-fab-label">AI Advisor</span>
+        <span class="bot-fab-pulse"></span>
+    </button>
+
+    <!-- Bot chat panel -->
+    <div id="bot-panel" class="bot-panel">
+
+        <!-- API Key Setup (shown first time) -->
+        <div id="bot-apikey-screen" class="bot-apikey-screen" style="display:none;">
+            <div class="bot-apikey-card">
+                <div class="bot-apikey-icon"><i class="fa-solid fa-key"></i></div>
+                <h3>Connect Your AI Advisor</h3>
+                <p>Paste your free <strong>Groq API key</strong> below.<br>
+                   Get one at <a href="https://console.groq.com" target="_blank">console.groq.com</a> → API Keys → Create (free, no card)</p>
+                <input type="password" id="bot-apikey-input" placeholder="gsk_…" autocomplete="off">
+                <button class="btn btn-primary" onclick="saveBotApiKey()">
+                    <i class="fa-solid fa-plug"></i> Connect &amp; Start
+                </button>
+                <p id="bot-apikey-err" class="bot-apikey-err" style="display:none;"></p>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <div class="bot-header">
+            <div class="bot-header-info">
+                <div class="bot-avatar-sm"><i class="fa-solid fa-robot"></i></div>
+                <div>
+                    <div class="bot-name">FinBot AI</div>
+                    <div class="bot-status"><span class="bot-dot"></span>Powered by Groq / Llama</div>
+                </div>
+            </div>
+            <div class="bot-header-actions">
+                <button class="bot-icon-btn" onclick="clearBotChat()" title="Clear chat"><i class="fa-solid fa-broom"></i></button>
+                <button class="bot-icon-btn" onclick="resetBotApiKey()" title="Change API Key"><i class="fa-solid fa-key"></i></button>
+                <button class="bot-icon-btn" onclick="toggleBotPanel()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="bot-messages" id="bot-messages"></div>
+
+        <!-- Quick chips -->
+        <div class="bot-chips">
+            <button class="bot-chip" onclick="sendBotQuick('Analyze my complete financial data and give me a full summary.')">
+                <i class="fa-solid fa-chart-line"></i> Analyze Finances
+            </button>
+            <button class="bot-chip" onclick="sendBotQuick('Predict my expenses and savings for the next 2 months in a table.')">
+                <i class="fa-solid fa-calendar-check"></i> Predict Next Month
+            </button>
+            <button class="bot-chip" onclick="sendBotQuick('Give me smart saving suggestions based on my spending patterns.')">
+                <i class="fa-solid fa-piggy-bank"></i> Saving Tips
+            </button>
+            <button class="bot-chip" onclick="sendBotQuick('Suggest investment options based on my monthly savings. Include allocation percentages.')">
+                <i class="fa-solid fa-chart-pie"></i> Investments
+            </button>
+            <button class="bot-chip" onclick="sendBotQuick('Calculate my financial health score from 0-100 and explain it in detail.')">
+                <i class="fa-solid fa-heart-pulse"></i> Health Score
+            </button>
+        </div>
+
+        <!-- Input -->
+        <div class="bot-input-row">
+            <input type="text" id="bot-input" class="bot-input" placeholder="Ask your AI advisor anything…" onkeydown="if(event.key==='Enter')sendBotMessage()">
+            <button class="bot-send-btn" onclick="sendBotMessage()" title="Send">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Script -->
+    <script src="app.js"></script>
+</body>
+
+</html>
