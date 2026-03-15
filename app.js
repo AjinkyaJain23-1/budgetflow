@@ -504,7 +504,7 @@ function exportPDF() {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text('BudgetFlow — Monthly Report', 40, 38);
+    doc.text('FinSavvy — Monthly Report', 40, 38);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`Generated for: ${userName}   |   Date: ${now}`, 40, 52);
@@ -545,7 +545,7 @@ function exportPDF() {
         margin: { left: 40, right: 40 }
     });
 
-    doc.save(`BudgetFlow_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`FinSavvy_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 // ── Export Excel ──────────────────────────────────────────────
@@ -576,7 +576,7 @@ function exportExcel() {
 
     // ── Sheet 2: Summary
     const summaryData = [
-        ['BudgetFlow — Monthly Summary'],
+        ['FinSavvy — Monthly Summary'],
         ['Generated for', userName],
         ['Date', new Date().toLocaleDateString('en-IN')],
         [],
@@ -589,7 +589,7 @@ function exportExcel() {
     summarySheet['!cols'] = [{ wch: 20 }, { wch: 18 }];
     XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
 
-    XLSX.writeFile(wb, `BudgetFlow_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `FinSavvy_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 function renderTables() {
