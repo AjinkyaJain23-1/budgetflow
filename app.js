@@ -2,6 +2,9 @@
 let transactions = JSON.parse(localStorage.getItem('budget_transactions')) || [];
 const STORAGE_KEY = 'budget_transactions';
 
+let subscriptions = JSON.parse(localStorage.getItem('budget_subscriptions')) || [];
+const STORAGE_KEY_SUBS = 'budget_subscriptions';
+
 // DOM Elements
 const views = document.querySelectorAll('.view-section');
 const navItems = document.querySelectorAll('.nav-item');
@@ -47,6 +50,7 @@ function init() {
     setupFixedExpenses();
     setupFixedIncomes();
     setupFinancialBot();
+    setupSubscriptions();
     document.getElementById('reset-data').addEventListener('click', resetData);
 
     // Restore last active section (default: dashboard)
@@ -113,7 +117,7 @@ function navigateTo(targetId, updateHash = true) {
     if (targetView) targetView.classList.add('active');
 
     // Update header title
-    const titles = { dashboard: 'Overview', income: 'Income Management', expenses: 'Expense Tracking', summary: 'Monthly Summary', profile: 'My Profile', 'budget-plan': 'Smart Budget Plan' };
+    const titles = { dashboard: 'Overview', income: 'Income Management', expenses: 'Expense Tracking', summary: 'Monthly Summary', profile: 'My Profile', 'budget-plan': 'Smart Budget Plan', subscriptions: 'Subscriptions' };
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.textContent = titles[targetId] || '';
 
@@ -320,6 +324,9 @@ function resetData() {
         localStorage.removeItem(BP_STORAGE_KEY);
         localStorage.removeItem(PROFILE_KEY);
         
+        subscriptions = [];
+        localStorage.removeItem(STORAGE_KEY_SUBS);
+        
         // Also clear any other local storage items apart from theme or bot api key
         Object.keys(localStorage).forEach(key => {
             if (key.startsWith('budget_') && key !== 'budget_theme' && key !== 'budget_bot_apikey') {
@@ -362,6 +369,8 @@ function updateUI() {
     renderMonthlyOverview();
     checkFixedExpensePrompt();
     checkFixedIncomePrompt();
+    if (typeof renderSubscriptions === 'function') renderSubscriptions();
+    if (typeof checkSubscriptionReminders === 'function') checkSubscriptionReminders();
 }
 
 // ── Monthly Income & Expenses Overview ──────────────────────────
@@ -2462,6 +2471,157 @@ function markdownToHtml(text) {
     if (!html.startsWith('<')) html = '<p>' + html + '</p>';
 
     return html;
+}
+
+// ══════════════════════════════════════════════════════
+// SUBSCRIPTIONS MANAGEMENT
+// ══════════════════════════════════════════════════════
+function setupSubscriptions() {
+    const subForm = document.getElementById('subscription-form');
+    if (subForm) {
+        subForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            saveSubscription();
+        });
+    }
+}
+
+function saveSubscription() {
+    const isEdit = document.getElementById('subscription-id').value !== '';
+    const id = isEdit ? document.getElementById('subscription-id').value : generateId();
+
+    const sub = {
+        id,
+        description: document.getElementById('subscription-desc').value.trim(),
+        amount: parseFloat(document.getElementById('subscription-amount').value),
+        category: document.getElementById('subscription-category').value,
+        billingDay: parseInt(document.getElementById('subscription-day').value) || 1
+    };
+
+    if (isEdit) {
+        subscriptions = subscriptions.map(s => s.id === id ? sub : s);
+    } else {
+        subscriptions.push(sub);
+    }
+    
+    // sort by billing day
+    subscriptions.sort((a, b) => a.billingDay - b.billingDay);
+    localStorage.setItem(STORAGE_KEY_SUBS, JSON.stringify(subscriptions));
+
+    updateUI();
+    closeModal('subscription-modal');
+}
+
+function editSubscription(id) {
+    const sub = subscriptions.find(s => s.id === id);
+    if (!sub) return;
+
+    document.getElementById('subscription-id').value = sub.id;
+    document.getElementById('subscription-desc').value = sub.description;
+    document.getElementById('subscription-amount').value = sub.amount;
+    document.getElementById('subscription-day').value = sub.billingDay;
+    document.getElementById('subscription-category').value = sub.category;
+
+    document.getElementById('subscription-modal-title').textContent = 'Edit Subscription';
+    openModal('subscription-modal');
+}
+
+function deleteSubscription(id) {
+    if (confirm('Are you sure you want to delete this subscription?')) {
+        subscriptions = subscriptions.filter(s => s.id !== id);
+        localStorage.setItem(STORAGE_KEY_SUBS, JSON.stringify(subscriptions));
+        updateUI();
+    }
+}
+
+function renderSubscriptions() {
+    const container = document.getElementById('subscriptions-list');
+    const costText = document.getElementById('subs-total-cost');
+    if (!container) return;
+
+    const totalCost = subscriptions.reduce((sum, s) => sum + s.amount, 0);
+    if(costText) costText.textContent = formatCurrency(totalCost);
+
+    if (subscriptions.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1; padding: 2rem;">No active subscriptions found.</div>';
+        return;
+    }
+
+    let html = '';
+    subscriptions.forEach(s => {
+        let iconMarkup = '<i class="fa-solid fa-repeat"></i>';
+        if(s.category === 'Entertainment') iconMarkup = '<i class="fa-solid fa-film"></i>';
+        else if(s.category === 'Software') iconMarkup = '<i class="fa-solid fa-code"></i>';
+        else if(s.category === 'Utilities') iconMarkup = '<i class="fa-solid fa-bolt"></i>';
+        
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth();
+        let nextBilling = new Date(currentYear, currentMonth, s.billingDay);
+        
+        if (today.getDate() > s.billingDay) {
+            nextBilling = new Date(currentYear, currentMonth + 1, s.billingDay);
+        }
+        const options = { month: 'short', day: 'numeric' };
+        const nextBillingFormatted = nextBilling.toLocaleDateString('en-US', options);
+
+        html += `
+        <div class="glass-panel subscription-card">
+            <div class="sub-header">
+                <div class="sub-icon">${iconMarkup}</div>
+                <div class="sub-actions">
+                    <button class="btn btn-sm btn-edit" onclick="editSubscription('${s.id}')"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteSubscription('${s.id}')"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+            <div class="sub-body">
+                <h4>${s.description}</h4>
+                <p class="sub-cat">${s.category}</p>
+                <div class="sub-cost">${formatCurrency(s.amount)}<span>/mo</span></div>
+                <div class="sub-billing"><i class="fa-regular fa-calendar-check"></i> Next bill: ${nextBillingFormatted}</div>
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function checkSubscriptionReminders() {
+    const banner = document.getElementById('subs-reminder-banner');
+    const textEl = document.getElementById('subs-reminder-text');
+    if (!banner || !textEl) return;
+
+    if (subscriptions.length === 0) {
+        banner.style.display = 'none';
+        return;
+    }
+
+    const today = new Date();
+    const upcoming = [];
+    subscriptions.forEach(s => {
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth();
+        let nextBilling = new Date(currentYear, currentMonth, s.billingDay);
+        
+        if (today.getDate() > s.billingDay) {
+            nextBilling = new Date(currentYear, currentMonth + 1, s.billingDay);
+        }
+        
+        const diffTime = nextBilling - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        
+        if (diffDays >= 0 && diffDays <= 3) {
+            upcoming.push(s);
+        }
+    });
+
+    if (upcoming.length > 0) {
+        const names = upcoming.map(s => s.description).join(', ');
+        textEl.innerHTML = `Upcoming subscriptions within 3 days: <strong>${names}</strong>`;
+        banner.style.display = 'flex';
+    } else {
+        banner.style.display = 'none';
+    }
 }
 
 function escapeHtml(text) {
