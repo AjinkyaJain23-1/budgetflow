@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: culturaltune
+      POSTGRES_PASSWORD: culturaltune_pass
+      POSTGRES_DB: culturaltune_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: always
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+      - /tmp/culturaltune:/tmp/culturaltune
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://culturaltune:culturaltune_pass@db:5432/culturaltune_db
+      - REDIS_URL=redis://redis:6379/0
+      - MOCK_AI=true
+    depends_on:
+      - db
+      - redis
+    restart: always
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A app.workers.tasks worker --loglevel=info
+    volumes:
+      - ./backend:/app
+      - /tmp/culturaltune:/tmp/culturaltune
+    environment:
+      - DATABASE_URL=postgresql://culturaltune:culturaltune_pass@db:5432/culturaltune_db
+      - REDIS_URL=redis://redis:6379/0
+      - MOCK_AI=true
+    depends_on:
+      - db
+      - redis
+      - backend
+    restart: always
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: always
+
+volumes:
+  postgres_data:
